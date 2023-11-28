@@ -1,3 +1,7 @@
+
+Artifact Evaluation for the paper [DCRA: A Distributed Chiplet-based Reconfigurable Architecture for Irregular Applications](https://arxiv.org/abs/2311.15443)
+
+
 # Generate Figures
 
 ## Figure 4 - NoC
