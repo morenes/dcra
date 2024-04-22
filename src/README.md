@@ -25,6 +25,10 @@ Its size is specified to the simulator in Kibibytes (KiB). There is no model for
 
 Tasks are executed on a Processing Unit (PU). The PU is modeled in a simplistic manner by specifying the latency of computing the instructions within the task code. This is tedious but flexible since it is a quick way to model the latency of instructions within a task.
 
+### Simultaneous Multi-threading (SMT)
+
+A PU can have several logical threads that allows the PU to overlap the time that is waiting for data to switch to a different thread. Computation by different threads cannot be done simultaneously.
+
 ### Chiplet Die
 
 muchiSim allows simulation of a hierarchical design, where a chiplet (also called a die) is the smallest unit that is fabricated. We only care about differentiating chiplets from chip packages if we care about faithfully modeling the power consumption and bandwidth limitations between them. Otherwise, we can model a chip package as a single chiplet.

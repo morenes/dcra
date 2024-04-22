@@ -14,11 +14,13 @@ plt.rcParams["font.family"] = "Times New Roman"
 rc('font',**{'family':'serif','serif':['Times New Roman']})
 rc('text', usetex=True)
 
-folder = ["isca_logs"]
+folder = ["sim_micro"]
 font = 20
-leg_inputs = {'ego-Twitter':'TT', 'liveJournal':'LJ', 'amazon-2003':'AZ', 'wikipedia':'WK', 'Kron16':'R16', 'Kron22':'R22', 'Kron25':'R25', 'Kron26':'R26'}
+font_xticks = font - 1
+leg_inputs = {'ego-Twitter':'TT', 'liveJournal':'LJ', 'amazon-2003':'AZ', 'wikipedia':'WK', 'Kron16':'R16', 'Kron22':'R22', 'Kron25':'R25', 'Kron26':'R26', 'fft1':'FFT'}
 
 default_grid_width = 64
+default_scaling_dataset = "Kron26"
 
 def geo_mean(iterable):
     a = np.array(iterable)
@@ -48,7 +50,7 @@ def collect_data(binaries, metrics, apps, inputs,plot_type, plot_metric):
                     else:
                         grid = int(dataset) # In this case the input contains the grid size, not the dataset
                         if plot_type==4 or plot_type==6:
-                            dataset="Kron26"
+                            dataset=default_scaling_dataset
                         else:
                             print("ERROR: Dataset not in keys and not a grid size: "+dataset)
                             sys.exit(2)
@@ -57,6 +59,7 @@ def collect_data(binaries, metrics, apps, inputs,plot_type, plot_metric):
 
                 print(dataset)
                 print(grid)
+                bin_idx = 0
                 for binary in binaries:
                     print(binary)
                     # Split binary into type and grid config
@@ -67,25 +70,27 @@ def collect_data(binaries, metrics, apps, inputs,plot_type, plot_metric):
                         print("2-Split Dataset: "+dataset)
                         print("2-Split Grid: "+str(grid))
 
-                        if (plot_type>=1) and (plot_type<=3) and (dataset=="Kron25"):
-                            grid=grid>>1
-                            
-                        if (plot_type>=1) and (plot_type<=3) and (dataset=="Kron25") and ((binary=="SCL2")):
-                            binary="MEM6"
-                        elif (plot_type>=1) and (plot_type<=3) and (dataset=="Kron26") and ((binary=="SCL2")):
-                            binary="DCRA32_S"
-
-                    if (plot_type==4) and (dataset=="Kron26") and (app=="pagerank") and ((grid==64) or (grid==32)):
-                        binary="DCRA32_SB"
-                    elif (plot_type==4) and (dataset=="Kron26") and (grid==32):
-                        binary="SCL2"
-                    elif (plot_type==4) and (dataset=="Kron26") and (grid==256):
-                        binary="SCL1"
-
-                    if (plot_type==6) and (app=="pagerank") and (grid<512):
-                        binary="SCALINGB"
-                    if (app=="histo" or app=='pagerank' or app=="spmv") and (binary=="THRU0"):
-                        binary="1PMCCASC0"
+                        # DCRA Packaging Plot
+                        if (plot_type>=1) and (plot_type<=3):
+                            if dataset=="Kron25":
+                                grid=grid>>1
+                                if binary=="SCL2": # Take it from Memory Figure
+                                    binary="MEM6"
+                                elif binary=="SCL1": # Take it from Scaling Figure
+                                    binary="DCRA32_S"
+                            elif dataset=="Kron26":
+                                if binary=="SCL2" or binary=="SCL1": # Take it from Scaling Figure
+                                    binary="DCRA32_S"
+                                    
+                    # Change binary name for specific cases
+                    if (plot_type==4):
+                        if dataset=="Kron25":
+                            if grid==32: # Take it from Memory Figure
+                                binary="MEM6"
+                    elif (plot_type==6):
+                        if (app=="fft"):
+                            dataset="fft1"; binary="B3"
+                    
 
                     print("Binary Name: "+binary)
 
@@ -114,6 +119,7 @@ def collect_data(binaries, metrics, apps, inputs,plot_type, plot_metric):
 
                     data_bin.append(value)
                     print(value)
+                    bin_idx = bin_idx + 1
 
                 data_dataset.append(data_bin)
             data_apps.append(data_dataset)
@@ -150,6 +156,7 @@ def collect_data(binaries, metrics, apps, inputs,plot_type, plot_metric):
 
 def main(argv):
     global default_grid_width
+    global default_scaling_dataset
     usage = "characterization.py -p <plot_type> -m <metric> (0:time, 1:utilization)"
     plot_type = 0
     plot_len = 0
@@ -188,33 +195,45 @@ def main(argv):
     ]
 
     hatches = ['','\\','.','//','o','-','x','*','O']
+    muchisim_eval = False
 
     perf_word = "TEPS"
     perf_metric = "TEPS"
     perf_label = "TEPS"
     energy_label = "TEPS/Watt"
-    if False: #plot_type<=4 or plot_type==10 or plot_type==9 or plot_type==19 or plot_type==20 or plot_type==23:
-        perf_word = "FLOP/s"
-        perf_metric = "flops"
-        perf_label = "Performance"
-        energy_label = "Energy Efficiency"
 
-    left_point = 0
+    if muchisim_eval and plot_type==9: 
+        perf_word = "FLOPS"
+        perf_metric = "flops"
+        perf_label = "FLOPS" #"Performance"
+        energy_label = "FLOPS/Watt" #Energy Efficiency"
+
+    legend_left_point = 0
+    app_cols = 2
+    legend_top_sep = -0.24
+    legend_height = 0.1
+    legend_width = 6.5
+
     if (plot_type>=9):
         #Default values for Plot types > 10
         y_lim = 10
         inputs = ['wikipedia','Kron22']
-        legend_width = 6.5
                 
         if plot_type==9: #SRAM size comparison
             y_lim = 13
             default_grid_width = 32
-            inputs = ['Kron25']
-            binaries = ["MEM0","MEM1","MEM2","MEM6","MEM3","MEM4","MEM5"]
-            comp = ("128T/C 64KB","128T/C 128KB","128T/C 256KB","128T/C 512KB","32T/C 128KB","32T/C 256KB","32T/C 512KB")
-            cols=4
-            legend_width = 6.8
-            left_point = -0.6
+            
+            if not muchisim_eval:
+                legend_left_point = -0.2; legend_width = 7
+                inputs = ['Kron22','Kron25']; binaries = ["MEM0","MEM1","MEM2","MEM6","MEM3","MEM4","MEM5"]; app_cols = 2; cols=4
+                comp = ("128T/C 64KB","128T/C 128KB","128T/C 256KB","128T/C 512KB","32T/C 128KB","32T/C 256KB","32T/C 512KB")
+            else:
+                inputs = ['Kron25']; binaries = ["MEM0","MEM1","MEM2","MEM3","MEM4","MEM5"];
+                app_cols = 1; cols=3; legend_top_sep=-0.15; legend_width = 8.5
+                apps = ['sssp','pagerank','bfs','wcc','spmv','spmm','histo']
+                comp = ("128 Tile/Ch 64 KiB","128 Tile/Ch 128 KiB","128 Tile/Ch 256 KiB","32 Tile/Ch 128 KiB","32 Tile/Ch 256 KiB","32 Tile/Ch 512KiB")
+                
+
         elif plot_type==10: #QUEUE size comparison
             y_lim = 2.5
             binaries = ["OQUEUE1","OQUEUE3","OQUEUE4","OQUEUE5","OQUEUE6"]
@@ -222,17 +241,21 @@ def main(argv):
             apps = ['sssp','pagerank','bfs','wcc','spmv']
             cols=3
             legend_width = 5.5
-        elif plot_type==11: #PROXY cache
-            y_lim = 10.5
+        elif plot_type==11: #PROXY cache Pressure
+            y_lim = 12
             default_grid_width = 128
-            binaries = ["PROXY128", "CASC2","NPCACHESCL16F2","NPROXY16F","NPCACHESCL16F8","CASCF162"]
-            comp = ("No Proxy (Dalorex)","16x16 P\$ in Full","16x16 P\$ 1/2","16x16 P\$ 1/4","16x16 P\$ 1/8","16x16 P\$ 1/16")
+            #binaries = ["PROXY128", "CASC2","NPCACHESCL16F2","NPROXY16F","NPCACHESCL16F8","CASCF162"]
+            binaries = ["PROXY128","PROXY16", "PROXY16F2","PROXY16F","PROXY16F16","PROXY16F64"]
+            comp = ("No Proxy (Dalorex)","16x16 P\$ in Full","16x16 P\$ 1/2","16x16 P\$ 1/4","16x16 P\$ 1/16","16x16 P\$ 1/64")
             cols=3
         elif plot_type==12: #PROXY size comparison
-            y_lim = 11
-            default_grid_width = 128
-            binaries = ["PROXY128","PROXY32","NPROXY16F","NPROXY8F","CASC2","NPROXY8"]
+            #inputs = ['wikipedia','liveJournal','Kron22']
+            y_lim = 13.5; default_grid_width = 128
+            binaries = ["PROXY128","PROXY32","PROXY16F","PROXY8F","PROXY16","PROXY8"]
             comp = ("No Proxy (Dalorex)","Proxy 32x32","Proxy 16x16","Proxy 8x8")
+            # y_lim = 26; default_grid_width = 256
+            # binaries = ["DLX_SCALE_D256","PROXY32","DLX_SCALE_T256"]
+            # comp = ("No Proxy (Dalorex)","Proxy 32x32","Proxy 16x16")
             cols=4
             legend_width = 6.8
 
@@ -242,8 +265,9 @@ def main(argv):
 
         elif plot_type==14: #Dalorex vs Tascade
             y_lim = 12
+            #inputs = ['wikipedia','liveJournal','Kron22']
             apps = ['sssp','pagerank','bfs', 'wcc','spmv','histo']
-            binaries = ["DLXSD64--64","NDLXST64--64","PROXY128--128","CASC2--128","DLXSD256--256","NDLXST256--256"]
+            binaries = ["DLX_SCALE_D64--64","DLX_SCALE_T64--64","PROXY128--128","PROXY16--128","DLX_SCALE_D256--256","DLX_SCALE_T256--256"]
             comp = ("Dalorex-64x64","Tascade-64x64","Dalorex-128x128","Tascade-128x128","Dalorex-256x256","Tascade-256x256")
             cols=3
         elif plot_type==15: #NETWORK
@@ -260,39 +284,40 @@ def main(argv):
             legend_width = 3.2
             cols=3
         elif plot_type==17: #Simulation time
-            default_grid_width = 32
             y_lim = 10
-            apps = ['spmv','histo'] #, 'fft']
-            inputs = ['Kron25--32','Kron25--64']
-            binaries = ["TH2","TH4","TH8","TH16"]
-            comp = ("2","4","8","16")
-            metrics = ["sim_time"]          
+            apps = ['sssp','pagerank','bfs','spmv','spmm','histo', 'fft']
+            # inputs = ['Kron25--32','Kron25--64']
+            #inputs = ['Kron22--16',"Kron22--32","Kron22--64"]
+            inputs = ["Kron22--32","Kron22--64"]
+            binaries = ["ITHR2","ITHR4","ITHR8","ITHR16","ITHR32"]
+            comp = ("2 Threads","4 Threads","8 Threads","16 Threads","32 Threads")
+            legend_width = 7.5
         elif plot_type==18: #FFT validation
             y_lim = 2
             apps = ['fft']
-            inputs = ['Kron26']
-            binaries = ["SCALING--32","SCALING--64","SCALING--128","SCALING--256", "SCALING--512"]
+            inputs = ['fft1']
+            binaries = ["B3--32","B3--64","B3--128","B3--256", "B3--512"]
             comp = ("32","64","128", "256","512")
             legend_width = 3
             cols=3
         elif plot_type==19: #NOC_TYPES
             default_grid_width = 64
-            y_lim = 16
+            y_lim = 8.6
             inputs = ['Kron22','wikipedia']
-            binaries = ["NOCM0","NOCM1","NOCM2","NOCM3","NOCM4"]
+            binaries = ["NOC0","NOC1","NOC2","NOC3","NOC4"]
             comp = ("Mesh 32-bit",  "Mesh 64-bit",  "Torus 64-bit", "+inter-die-NoC 32-bit","NoC Freq=2Ghz") #, "+Ruche")
             cols=3    
         elif plot_type==20: #PU_FREQ
             default_grid_width = 64
             y_lim = 10
-            binaries = ["PUF0","PUF1","NOCM3","PUF4"]
+            binaries = ["PUF0","PUF1","NOC3","PUF4"]
             comp = ("PU=0.25Ghz","PU=0.5Ghz","PU=1.0Ghz","PU=2.0Ghz")
             legend_width = 6.5
             cols=4
         elif plot_type==21: # Cascade Policy
             default_grid_width = 128
-            y_lim = 10
-            binaries = ["PROXY128","THRU0","CASC1","CASC2"]
+            y_lim = 11
+            binaries = ["PROXY128","CASC0","CASC1","PROXY16"]
             cols=2
             comp = ("Dalorex","Proxy \& Merge Owner","Proxy \& Cascade","Tascade")
         elif plot_type==22: # Write Thru
@@ -303,9 +328,7 @@ def main(argv):
             comp = ("WT Never", "WT Selective","WB Never", "WB Always", "WB Selective")
             cols=3
         elif plot_type==23: #GRANULARITY
-            #default_grid_width = 64
-            y_lim = 2.5
-            #apps = ['sssp','bfs', 'wcc','spmv','histo']
+            y_lim = 2.7
             binaries = ["GRANU0--64","GRANU1--32","GRANU2--16"]
             comp = ("1PU/Tile 64x64Tiles",  "4PU/Tile 32x32Tiles",  "16PU/Tile 16x16Tiles")
             cols=3
@@ -313,24 +336,25 @@ def main(argv):
         elif plot_type>=24 and plot_type <=27 : # Sync advantage
             default_grid_width = 128
             if plot_type==24:
-                y_lim = 10
-                binaries = ["PROXY128","SYNC0","SYNCUP1","THRU0","CASC2"]
-                comp = ("No Proxy (Dalorex)","Proxy Sync \& Merge","Proxy Sync \& Cascade","Proxy Merge","Tascade")
+                y_lim = 11
+                binaries = ["PROXY128","SYNC0","SYNC1","PROXY16"]
+                comp = ("No Proxy (Dalorex)", "Proxy Sync \& Merge", "Proxy Sync \& Cascade", "Tascade")
                 cols=2
             elif plot_type==25:
                 y_lim = 13
                 colors[2] = colors[3];hatches[2] = hatches[3]
-                binaries = ["PX_NOC0","PX_NOC2","PX_NOC1"]
-                comp = ("No Proxy (Mesh)","Proxy Sync \& Merge","Tascade")
+                binaries = ["PROXY128","SYNC0","SYNCUP1","THRU0","CASC2"]
+                comp = ("No Proxy (Dalorex)","Proxy Sync \& Merge","Proxy Sync \& Cascade","Proxy Merge","Tascade")
             elif plot_type==26:
                 colors[2] = colors[3];hatches[2] = hatches[3]
                 binaries = ["PX_NOC3","PX_NOC4","PX_NOC5"]
                 comp = ("No Proxy (Inter-chip)","Proxy Sync \& Merge","Tascade")
             elif plot_type==27:
+                y_lim = 11
                 c1 = colors[1]; colors[1] = colors[3]; h1 = hatches[1]; hatches[1] = hatches[3]; colors[3] = c1; hatches[3] = h1
                 c1 = colors[2]; colors[2] = colors[3]; h1 = hatches[2]; hatches[2] = hatches[3]; colors[3] = c1; hatches[3] = h1
-                binaries = ["PROXY128","CASC2","PX_NOC0","PX_NOC1","PX_NOC3","PX_NOC5"]
-                comp = ("No Proxy (Dalorex)","Tascade (Torus)", "No Proxy (Mesh)","Tascade (Mesh)", "No Proxy (Inter-chip)","Tascade (Inter-chip)")
+                binaries = ["PROXY128","PROXY16","PX_NOC0","PX_NOC11","PX_NOC2","PX_NOC3"]
+                comp = ("No Proxy (Torus)","Tascade (Torus)", "No Proxy (Mesh)","Tascade (Mesh)", "No Proxy (Inter-chip)","Tascade (Inter-chip)")
                 cols=3
 
 
@@ -357,10 +381,12 @@ def main(argv):
             elif plot_metric==9:
                 metrics = ["dhit_rate"]
             elif plot_metric==10:
-                if plot_type==19:
+                if plot_type==19: # NoC plot
                     metrics = [perf_metric,"cost_2d"]
                 else:
                     metrics = [perf_metric,"cost_2.5d"]
+            elif plot_metric==11:
+                metrics = ["sim_time","time"]
 
         plot_len = len(binaries)
         bars = len(inputs)+len(comp)/1.1
@@ -392,27 +418,34 @@ def main(argv):
         legend_width = 5
         bars = len(inputs)+len(comp)/1.1
         if plot_type==2:
-            y_lim = 4.5
-            label=perf_word+"/\$ Improvement"
-            metrics = [perf_metric,"cost_2d","cost_2.5d","cost_3d"]
+            if plot_metric==0:
+                y_lim = 4.5 #4.5
+                label=perf_word+"/\$ Improvement"
+                metrics = [perf_metric,"cost_2d","cost_2.5d","cost_3d"]
+            else:
+                y_lim = 1
+                label=perf_word+" Improvement"
+                metrics = [perf_metric]
         else:
             y_lim = 2
             label=perf_word+'/Watt Improvement'
             metrics = ["energy","3d_energy","cost_2d","cost_2.5d","cost_3d"]
 
-    elif (plot_type==4) or (plot_type==6): #MASSIVE SCALING DCRA
+    elif (plot_type==4) or (plot_type==6): # Scaling 2^10 to 2^20 plot!
         if plot_type==4:
+            default_scaling_dataset="Kron25"
             apps = ['sssp','pagerank','bfs', 'wcc','spmv','histo']
             binaries = ["DCRA32_S"]; inputs = ['32','64','128','256'] #Kron26, chiplet 32x32
-        else:
-            binaries = ["SCALING"]
-            apps = ['sssp','pagerank','bfs', 'wcc','spmv','histo']
+        else: #plot_type==6
+            binaries = ["SCALINGD"]
+            apps = ['sssp','pagerank','bfs', 'wcc','spmv','histo']#,'fft']
             inputs = ['32','64','128','256','512','1024']
 
+        # Based on plot_metric
         if plot_metric==0:
             metrics = [perf_metric,"gops","effective_bw"]
             comp = [perf_metric, "Operations/s", "Avg. Mem. BW (Bytes/s)"]
-            legend_width = 6.5
+            legend_width = 6 #6.5
         elif plot_metric==1:
             metrics = [perf_metric,"power","cost_2.5d","total_msg"]
             comp = [perf_word+"/\$", perf_metric+"/Watt", "NoC Messages"]
@@ -421,6 +454,10 @@ def main(argv):
             metrics = [perf_metric,"gops","power"]
             comp = [perf_word+"/Watt", "Operations/s/Watt"]
             legend_width = 5
+        elif plot_metric==3:
+            metrics = ["sim_time","time","gops","total_msg"]
+            comp = ["1","2","3"]
+            legend_width = 5.5
 
         plot_len = len(metrics)
         
@@ -433,17 +470,18 @@ def main(argv):
     geomean_per_app = []
 
     fig_width = max(2*len(apps), 2*len(inputs))
-    fig_height = 3.5
+    fig_height = 3.5 #change height?
     plt.figure(figsize=(fig_width, fig_height)) #size of the global figure
-    gs = gridspec.GridSpec(1, len(apps) * 2 + 1)
+    gs = gridspec.GridSpec(1, len(apps) * app_cols + 1)
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.10, hspace=0.0000001)
     
     line_for_legend = []
     legend_labels = []
+
     # PRINT PLOTS j is apps
     for j in range(len(apps)):
         accum_energy = []
-        ax = plt.subplot(gs[0, j * 2:j * 2 + 2],frameon=False)  # Full width
+        ax = plt.subplot(gs[0, j * app_cols:j * app_cols + app_cols],frameon=False)  # Full width
         plt.rcParams["font.family"] = "Times New Roman"
  
         if plot_type==0: #network comparison
@@ -461,22 +499,64 @@ def main(argv):
                     plt.ylim([0, 4])
                 elif plot_type==20:
                     plt.ylim([0.75, 1.25])
-                else:
+                elif plot_type==23:
+                    plt.ylim([0, 1.4])
+                else: # Default limit in energy efficiency plot
                     plt.ylim([0, 2])
                 label = energy_label +" Improvement"
             elif metrics[0]=="total_msg":
                 label='Reduction in NoC traffic'
                 if plot_type==12:
-                    plt.ylim([0, 3.3])
+                    plt.ylim([0, 4])
                 elif plot_type==14: # Scaling Dalorex vs Tascade
-                    ax.set_yscale('log'); plt.ylim([0.1, 20])
+                    ax.set_yscale('log'); plt.ylim([0.1, 10])
                     label='Increase in NoC Traffic w/ Scale'
                 elif plot_type==21:
-                    plt.ylim([0, 3.3])
+                    plt.ylim([0, 4])
                 else:
-                    plt.ylim([0, 3.3])
+                    plt.ylim([0, 4])
+            elif plot_metric==11:
+                plt.yscale('log')
+                if plot_type==14:
+                    plt.ylim([10, 1000])
+                    size1 = 64*64
+                    size2 = 128*128
+                    size3 = 256*256
+                elif plot_type==17:
+                    plt.ylim([10, 2000])
+                    size1 = 16*16
+                    size2=size1; size3=size1
+                else:
+                    plt.ylim([1, 2000])
+                    size1=default_grid_width*default_grid_width
+                    size2=size1; size3=size1
+                print("RANGE: "+str(len(inputs)))
+                # K is the number of datasets
+                for k in range(0, len(inputs)):
+                    if plot_type==17:
+                        size1 *= 4; size2=size1; size3=size1
+                        print("GRID SIZE: "+str(size1))
+                    data[0][j][k] = data[0][j][k] * 1000000.0 / (data[1][j][k]  * size1)
+                    data[1][j][k] = data[2][j][k] * 1000000.0 / (data[3][j][k]  * size1)
+                    if len(data) > 4:
+                        data[2][j][k] = data[4][j][k] * 1000000.0 / (data[5][j][k]  * size2)
+                        data[3][j][k] = data[6][j][k] * 1000000.0 / (data[7][j][k]  * size2)
+                        if len(data) > 8:
+                            data[4][j][k] = data[8][j][k] * 1000000.0 / (data[9][j][k]  * size3)
+                            if len(data) > 10:
+                                data[5][j][k] = data[10][j][k]* 1000000.0 / (data[11][j][k] * size3)
+                                if len(data) > 12:
+                                    data[6][j][k] = data[12][j][k]* 1000000.0 / (data[13][j][k] * size3)
+                                    if len(data) > 14:
+                                        data[7][j][k] = data[14][j][k]* 1000000.0 / (data[15][j][k] * size3)
+                        
+                label = "Sim time / DUT Time"
             elif metrics[0]=="sim_time":
-                plt.ylim([0, 20000])
+                if plot_type==14:
+                    plt.ylim([100, 1000000])
+                    plt.yscale('log')
+                else:
+                    plt.ylim([0, 20000])
                 label='Simulator Runtime (s)'
             elif metrics[0]=="arith_intensity_msgs":
                 plt.ylim([0, 1])
@@ -489,7 +569,7 @@ def main(argv):
                 label='Throughput (FLOPs)'
             elif metrics[0]==perf_metric:
                 if plot_type==19:
-                    plt.ylim([0, 16])
+                    plt.ylim([0, 8.6])
                 else:
                     plt.ylim([0, 5])
                 label=perf_label+"/\$ Improvement"
@@ -529,18 +609,19 @@ def main(argv):
             plt.ylim([0, y_lim])
             #j is app, k is dataset, i is binary
             for k in range(0, len(inputs)):
-                cost_d1_2d = data[1][j][k] # DCRA-SRAM
-                cost_d2_2d = data[5][j][k]
-                cost_d3_25d = data[10][j][k]
-                data[0][j][k] = data[0][j][k]*1.0/cost_d1_2d
-                data[1][j][k] = data[4][j][k]*1.0/cost_d2_2d
-                data[2][j][k] = data[8][j][k]*1.0/cost_d3_25d
-                # check if data[12] is not out of bounds
-                if len(data) > 12:
-                    cost_3d_dram_config = data[11][j][k]
-                    data[3][j][k] = data[12][j][k]*1.0/cost_3d_dram_config
-                    #Check that HBM vertical and horizontal are the same
-                    assert(data[12][j][k] == data[8][j][k])
+                if plot_metric==0:
+                    cost_d1_2d = data[1][j][k] # DCRA-SRAM
+                    cost_d2_2d = data[5][j][k]
+                    cost_d3_25d = data[10][j][k]
+                    data[0][j][k] = data[0][j][k]*1.0/cost_d1_2d
+                    data[1][j][k] = data[4][j][k]*1.0/cost_d2_2d
+                    data[2][j][k] = data[8][j][k]*1.0/cost_d3_25d
+                    # check if data[12] is not out of bounds
+                    if len(data) > 12:
+                        cost_3d_dram_config = data[11][j][k]
+                        data[3][j][k] = data[12][j][k]*1.0/cost_3d_dram_config
+                        #Check that HBM vertical and horizontal are the same
+                        assert(data[12][j][k] == data[8][j][k])
         elif plot_type==3:
             plt.ylim([0, y_lim])
             for k in range(0, len(inputs)):
@@ -593,6 +674,21 @@ def main(argv):
                     data[0][j][k] = teps / power  #Teps/Watt
                     data[1][j][k] = operations / power #operations/s/Watt
                     data[2][j][k] = 1
+            elif plot_metric==3:
+                if apps[len(apps)-1] == 'fft':
+                    plt.ylim([1, 10000000000000])
+                else:
+                    plt.ylim([1000, 5000000000])
+                size1 = 1024
+                for k in range(0, len(inputs)):
+                    sim_time = data[0][j][k]
+                    #dut_time = data[1][j][k]
+                    operations = data[2][j][k] * 1000 * 1000 * 1000
+                    total_msg = data[3][j][k]
+                    data[0][j][k] = sim_time #* 1000000.0 / (dut_time * size1)
+                    data[1][j][k] = operations / sim_time
+                    data[2][j][k] = total_msg / sim_time
+                    size1 *= 4
 
         elif plot_type==5: #Tca comparison
             if metrics[0]=="edges":
@@ -616,16 +712,31 @@ def main(argv):
 
         # Exponent in bars footer
         objs=[]
-        if plot_type==4 or plot_type==6:
+        global font_xticks
+        if plot_type==9 and muchisim_eval:
+            font_xticks = 1
+            for inpt in inputs:
+                objs.append("")
+        if plot_type==17:
+            for inpt in inputs:
+                grid_x = int(inpt.split("--")[1])
+                objs.append("%dx%d" % (grid_x,grid_x))
+        elif plot_type==4 or plot_type==6:
             count = 0
             for inpt in inputs:
-                exp = int(inpt)
-                exp = np.log2(exp)*2
-                if count%2==0:
+                grid_x = int(inpt)
+                exp = np.log2(grid_x)*2
+                # Choose whether to skip every second tick or reduce the font size
+                print_all_ticks = (plot_type==4)
+                if print_all_ticks:
                     objs.append("$2^{%d}$" % exp)
+                    font_xticks = font - plot_type
                 else:
-                    objs.append("")
-                count=count+1
+                    if count%2==1:
+                        objs.append("$2^{%d}$" % exp)
+                    else:
+                        objs.append("")
+                    count=count+1
         else:
             # Based on the keys
             keys = list(leg_inputs.keys())
@@ -689,7 +800,7 @@ def main(argv):
             print("over %d: %0.10f" % (i,geomean) )
 
             if (plot_type==4 or plot_type==6):
-                if metrics[2]=="cost_2.5d" or plot_metric==2: # raw data
+                if metrics[2]=="cost_2.5d" or plot_metric>=2: # raw data
                     data[i][j] = [ 1.0*x for x in data[i][j]]
                 else: #operations/Watt
                     data[i][j] = [ x*pow(10,9) for x in data[i][j]]
@@ -700,8 +811,7 @@ def main(argv):
 
         # legend box
         do_not_show_legend = ((plot_type >= 24 and plot_type <= 27) and plot_metric!=7) or ((plot_type==11 or plot_type==12 or plot_type==21) and plot_metric!=8) or (plot_type==14 and plot_metric==0) or ((plot_type==9 or plot_type==19) and plot_metric!=10) or ((plot_type==20 or plot_type==23) and plot_metric!=7) or (plot_type==1 and plot_metric==0) or (plot_type==2)
-        vertical_separation = -0.23
-        height = 0.1
+
         line_plot = (plot_type==14) or (plot_type==4) or (plot_type==6)
         if not line_plot:
             rects_list=[]
@@ -720,10 +830,10 @@ def main(argv):
                             hatches[i]=hatches[i-2]
                 barr = plt.bar(y_pos+bar_id*bar_width, data_for_bar, bar_width, color=colors[i], alpha=1.0, linewidth=0.1, zorder=zonder_id,hatch=hatches[i])
                 rects_list.append(barr)
-            plt.xticks(y_pos+0.3, objs, fontsize=font-1, rotation=0)
+            plt.xticks(y_pos+0.3, objs, fontsize=font_xticks, rotation=0)
             if j==0 and not do_not_show_legend:
-                plt.legend(rects_list, comp, handletextpad=0.15, fontsize=font, bbox_to_anchor=(0, vertical_separation, legend_width, height), loc=1, ncol=cols, mode="expand", borderaxespad=0.)
-            if plot_metric!=7 and plot_type!=3 and plot_type!=2: #not log plots, not small space within bars as in energy plots
+                plt.legend(rects_list, comp, handletextpad=0.15, fontsize=font, bbox_to_anchor=(legend_left_point, legend_top_sep, legend_width, legend_height), loc=1, ncol=cols, mode="expand", borderaxespad=0.)
+            if plot_metric!=7 and plot_type!=3 and plot_type!=2 and plot_metric!=11: #not log plots, not small space within bars as in energy plots
                 ax.yaxis.set_minor_locator(AutoMinorLocator())
         else:
             if plot_type==14:
@@ -732,23 +842,19 @@ def main(argv):
                 line_x_pos = [x_positions[0], x_positions[2], x_positions[4]]
                 line1 = plt.plot(line_x_pos, [data[0][j], data[2][j], data[4][j]], marker='o', linestyle='-', color='blue')
                 line2 = plt.plot(line_x_pos, [data[1][j], data[3][j], data[5][j]], marker='*', linestyle='-', color='darkorange')
-                plt.xticks(y_pos+0.3, objs, fontsize=font-1, rotation=0)
+                plt.xticks(y_pos+0.3, objs, fontsize=font_xticks, rotation=0)
                 if j==0 and not do_not_show_legend:
                     line_for_legend.append(line1[0]); line_for_legend.append(line2[0])
                     legend_labels.append("Dalorex"); legend_labels.append("Tascade")
-                    #width=2.4; top=0.5; left=4.0; height=0.5
-                    #legend = plt.legend(line_for_legend, legend_labels, ncol=len(legend_labels), handletextpad=0.15, fontsize=font, bbox_to_anchor=(left, top, width, height), loc=1, mode="expand", borderaxespad=0., frameon=True, facecolor='white', framealpha=1.0)
-                    plt.legend(line_for_legend, legend_labels, ncol=len(legend_labels), handletextpad=0.15, fontsize=font, bbox_to_anchor=(1, vertical_separation, 4, .08), loc=1, mode="expand", borderaxespad=0.)
+                    plt.legend(line_for_legend, legend_labels, ncol=len(legend_labels), handletextpad=0.15, fontsize=font, bbox_to_anchor=(1, legend_top_sep, 4, .08), loc=1, mode="expand", borderaxespad=0.)
                     
             elif plot_type==4 or plot_type==6:
                 line1 = plt.plot(y_pos, data[0][j], marker='o', linestyle='-', color='blue')
                 line2 = plt.plot(y_pos, data[1][j], marker='*', linestyle='-', color='red')
-                if plot_type==4:
-                    line3 = plt.plot(y_pos, data[2][j], marker='x', linestyle='-', color='green')
-                if metrics[2]=="effective_bw":
+                if plot_type==4 or metrics[2]=="effective_bw" or plot_metric==3:
                     line3 = plt.plot(y_pos, data[2][j], marker='x', linestyle='-', color='green')
 
-                plt.xticks(y_pos, objs, fontsize=font-1, rotation=0)
+                plt.xticks(y_pos, objs, fontsize=font_xticks, rotation=0)
                 if j==0:
                     line_for_legend.append(line1[0]); line_for_legend.append(line2[0])
                     if metrics[2]=="effective_bw":
@@ -761,7 +867,10 @@ def main(argv):
                             legend_labels.append("NoC Message Hops")
                     elif plot_metric==2:
                         legend_labels.append(perf_word+"/Watt"); legend_labels.append("Operations/s/Watt")
-                    plt.legend(line_for_legend, legend_labels, ncol=len(legend_labels), handletextpad=0.15, fontsize=font, bbox_to_anchor=(left_point, vertical_separation, legend_width, .08), loc=1, mode="expand", borderaxespad=0.)
+                    elif plot_metric==3:
+                        line_for_legend.append(line3[0])
+                        legend_labels.append("Sim Time (s)"); legend_labels.append("Ops/s"); legend_labels.append("Msg/s")
+                    plt.legend(line_for_legend, legend_labels, ncol=len(legend_labels), handletextpad=0.15, fontsize=font, bbox_to_anchor=(legend_left_point, legend_top_sep, legend_width, .08), loc=1, mode="expand", borderaxespad=0.)
 
             # Adjust X ticks width
             xlims = ax.get_xlim()
@@ -792,15 +901,15 @@ def main(argv):
     
     plot_geo = plot_type!=4 and plot_type!=6
     if plot_geo:
-        ax = plt.subplot(gs[0, len(apps) * 2: len(apps) * 2 + 1],frameon=False)  # Full width
+        ax = plt.subplot(gs[0, len(apps) * app_cols: len(apps) * app_cols + 1],frameon=False)  # Full width
         plt.grid(True, which='major', axis = 'y', color = 'black', linestyle = '--', linewidth = 0.15, zorder=0)
         plt.grid(True, which='minor', axis = 'y', color = 'gray', linestyle = '--', linewidth = 0.03, zorder=1)
         plt.rcParams["font.family"] = "Times New Roman"
         plt.ylim(ylims)
         ax.set_yscale(ylim_scale)
-        plt.xticks([1], [''], fontsize=font-1, rotation=0)
+        plt.xticks([1], [''], fontsize=font_xticks, rotation=0)
         plt.yticks(fontsize=0)
-        if plot_metric!=7 and plot_type!=14 and plot_type!=3 and plot_type!=2:
+        if plot_metric!=7 and plot_type!=14 and plot_type!=3 and plot_type!=2 and plot_metric!=11:
             ax.yaxis.set_minor_locator(AutoMinorLocator())
         plt.title("Geo", fontsize=font)  
 
@@ -813,12 +922,12 @@ def main(argv):
                     bar_id=i-2
                     zonder_id=0
                     if i==4:
-                        colors[i]='yellow' #'mediumseagreen' #'lightgreen'
+                        colors[i]='yellow'
                         hatches[i]=hatches[i-2]
                     elif i==5:
-                        colors[i]='lightpink' #'orchid' #'lightpink'
+                        colors[i]='lightpink'
                         hatches[i]=hatches[i-2]
-                comp = ("NoProxy (Dalorex)","Proxy32x32","Proxy16x16F", "Proxy8x8F","Proxy16x16","Proxy8x8", )
+                    comp = ("NoProxy (Dalorex)","Proxy32x32","Proxy16x16F", "Proxy8x8F","Proxy16x16","Proxy8x8", )
 
             print("total geomean of %s %0.2f" % (comp[i], geo_data ) )
 
@@ -837,7 +946,7 @@ def main(argv):
         print("total geomean of %s over %s %0.2f" % (comp[i], comp[i-2], geo_mean(geomean_per_type[i])/geo_mean(geomean_per_type[i-2]) ) )
 
 
-    plt.savefig('plots/characterization%d_%d.pdf' %  (plot_type, plot_metric), bbox_inches='tight')
+    plt.savefig('plots/characterization/characterization%d_%d.pdf' %  (plot_type, plot_metric), bbox_inches='tight')
 
 if __name__ == "__main__":
    main(sys.argv[1:])

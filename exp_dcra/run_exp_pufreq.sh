@@ -11,8 +11,8 @@ else
 fi
 
 if [ -z "$4" ]; then
-  echo "Default grid_w=64"
   let grid_w=64
+  echo "Default grid_w=$grid_w"
 else
   let grid_w=$4
   echo "grid_w=$grid_w"
@@ -49,7 +49,7 @@ let dcache=0
 # Run mode
 let local_run=0
 let th=16
-let chiplet_w=16
+let chiplet_w=16 # So that the NoC is more the bottleneck than the memory
 
 prefix="-v $verbose -r $assert -w $sram_memory -y $dcache -s $local_run -c $chiplet_w"
 

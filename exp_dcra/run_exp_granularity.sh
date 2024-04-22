@@ -5,14 +5,14 @@ if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
 fi
 
 if [ $1 -gt 8 ]; then
-  apps="0 2 3 4 5"
+  apps="0 1 2 3 4 5"
 else
   apps=$1
 fi
 
 if [ -z "$4" ]; then
-  echo "Default grid_w=64"
   let grid_w=64
+  echo "Default grid_w=$grid_w"
 else
   let grid_w=$4
   echo "grid_w=$grid_w"
@@ -56,7 +56,7 @@ prefix="-v $verbose -r $assert -y $dcache -s $local_run"
 
 let torus=1
 
-#0 Torus-32b
+#0 Torus-32b, SMT=1
 let sram_memory=256*512
 var=smt_per_tile; value=1; setsmt
 let chiplet_w=$grid_w/4
@@ -64,7 +64,7 @@ options="-n ${exp}0 -t $th $prefix -m $grid_w -u 0 -o $torus -c $chiplet_w -w $s
 run 0
 
 
-#1 Torus-64b
+#1 Torus-64b, SMT=4
 let sram_memory=$sram_memory*4
 let grid_w=$grid_w/2
 let chiplet_w=$grid_w/4
@@ -73,7 +73,7 @@ options="-n ${exp}1 -t $th $prefix -m $grid_w -u 1 -o $torus -c $chiplet_w  -w $
 run 1
 
 
-#2 Torus-64b 2GHZ
+#2 Torus-64b 2GHZ, SMT=16
 let sram_memory=$sram_memory*4
 let grid_w=$grid_w/2
 let chiplet_w=$grid_w/4
